@@ -76,8 +76,7 @@ class AutoTrader(BaseAutoTrader):
         future_position and etf_position will always be the inverse of each
         other (i.e. future_position == -1 * etf_position).
         """
-        print(self.position)
-        print(future_position)
+        
         self.position = etf_position
         self.future_position = future_position
 
