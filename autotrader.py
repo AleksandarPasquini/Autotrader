@@ -32,8 +32,10 @@ class AutoTrader(BaseAutoTrader):
         price levels.
         """
         if instrument == Instrument.FUTURE:
-            new_bid_price = bid_prices[0] if bid_prices[0] != 0 else 0
-            new_ask_price = ask_prices[0] if ask_prices[0] != 0 else 0
+            new_bid_price = (bid_prices[3]) if bid_prices[0] != 0 else 0
+            new_ask_price = (ask_prices[3]) if ask_prices[0] != 0 else 0
+            bid_volume = bid_volumes[0] + bid_volumes[1] + bid_volumes[2] + bid_volumes[3]
+            ask_volume = ask_volumes[0] + ask_volumes[1] + ask_volumes[2] + ask_volumes[3]
 
             if self.bid_id != 0 and new_bid_price not in (self.bid_price, 0):
                 self.send_cancel_order(self.bid_id)
@@ -42,10 +44,20 @@ class AutoTrader(BaseAutoTrader):
                 self.send_cancel_order(self.ask_id)
                 self.ask_id = 0
 
+            if self.bid_id == 0 and new_bid_price != 0 and self.position < 100 - bid_volume and (self.future_position - bid_volumes[0] > -100):
+                self.bid_id = next(self.order_ids)
+                self.bid_price = new_bid_price
+                self.send_insert_order(self.bid_id, Side.BUY, new_bid_price, bid_volume, Lifespan.GOOD_FOR_DAY)
+
             if self.bid_id == 0 and new_bid_price != 0 and self.position < 90 and (self.future_position - 10 > -100):
                 self.bid_id = next(self.order_ids)
                 self.bid_price = new_bid_price
                 self.send_insert_order(self.bid_id, Side.BUY, new_bid_price, 10, Lifespan.GOOD_FOR_DAY)
+
+            if self.ask_id == 0 and new_ask_price != 0 and self.position > -100 + ask_volume and (self.future_position + ask_volumes[0] < 100):
+                self.ask_id = next(self.order_ids)
+                self.ask_price = new_ask_price
+                self.send_insert_order(self.ask_id, Side.SELL, new_ask_price, ask_volume, Lifespan.GOOD_FOR_DAY)
 
             if self.ask_id == 0 and new_ask_price != 0 and self.position > -90 and (self.future_position + 10 < 100):
                 self.ask_id = next(self.order_ids)
@@ -76,7 +88,7 @@ class AutoTrader(BaseAutoTrader):
         future_position and etf_position will always be the inverse of each
         other (i.e. future_position == -1 * etf_position).
         """
-        
+
         self.position = etf_position
         self.future_position = future_position
 
