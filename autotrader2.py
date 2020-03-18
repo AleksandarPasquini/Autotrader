@@ -36,8 +36,8 @@ class AutoTrader(BaseAutoTrader):
         if instrument == Instrument.FUTURE:
             new_bid_price = (bid_prices[0]) if bid_prices[0] != 0 else 0
             new_ask_price = (ask_prices[0]) if ask_prices[0] != 0 else 0
-            bid_volume = min(bid_volumes[0], 25)
-            ask_volume = min(ask_volumes[0], 25)
+            bid_volume = min(min(bid_volumes[0], 25), (100 - self.position))
+            ask_volume = min(min(ask_volumes[0], 25), (100 + self.position))
 
             bid_ids = []
             ask_ids = []
@@ -49,37 +49,21 @@ class AutoTrader(BaseAutoTrader):
                 self.send_cancel_order(self.ask_id)
                 self.ask_id = 0
 
-            if self.bid_id == 0 and new_bid_price != 0 and self.position < 100 - bid_volume and (
-                    self.future_position - bid_volume > -100) and self.bid_order == 0:
+            if self.bid_id == 0 and new_bid_price != 0 and self.position <= 100 - bid_volume and (
+                    self.future_position - bid_volume >= -100) and self.bid_order == 0:
                 self.bid_order = 1
                 ask_ids.append(self.bid_id)
                 self.bid_id = next(self.order_ids)
                 self.bid_price = new_bid_price
                 self.send_insert_order(self.bid_id, Side.BUY, new_bid_price, bid_volume, Lifespan.GOOD_FOR_DAY)
 
-            if self.bid_id == 0 and new_bid_price != 0 and self.position <= 100 - 1 and (
-                    self.future_position - 1 >= -100) and self.bid_order == 0:
-                self.bid_order = 1
-                ask_ids.append(self.bid_id)
-                self.bid_id = next(self.order_ids)
-                self.bid_price = new_bid_price
-                self.send_insert_order(self.bid_id, Side.BUY, new_bid_price, 1, Lifespan.GOOD_FOR_DAY)
-
-            if self.ask_id == 0 and new_ask_price != 0 and self.position > -100 + ask_volume and (self.future_position + ask_volume < 100)\
+            if self.ask_id == 0 and new_ask_price != 0 and self.position >= -100 + ask_volume and (self.future_position + ask_volume <= 100)\
                     and self.ask_order == 0:
                 self.ask_order = 1
                 bid_ids.append(self.ask_id)
                 self.ask_id = next(self.order_ids)
                 self.ask_price = new_ask_price
                 self.send_insert_order(self.ask_id, Side.SELL, new_ask_price, ask_volume, Lifespan.GOOD_FOR_DAY)
-
-            if self.ask_id == 0 and new_ask_price != 0 and self.position >= -100 + 1 and (self.future_position + 1 <= 100)\
-                    and self.ask_order == 0:
-                self.ask_order = 1
-                bid_ids.append(self.ask_id)
-                self.ask_id = next(self.order_ids)
-                self.ask_price = new_ask_price
-                self.send_insert_order(self.ask_id, Side.SELL, new_ask_price, 1, Lifespan.GOOD_FOR_DAY)
 
     def on_order_status_message(self, client_order_id: int, fill_volume: int, remaining_volume: int, fees: int) -> None:
 
