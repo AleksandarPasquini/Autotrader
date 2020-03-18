@@ -4,6 +4,7 @@ import itertools
 from typing import List, Tuple
 from ready_trader_one import BaseAutoTrader, Instrument, Lifespan, Side
 
+
 class AutoTrader(BaseAutoTrader):
     def __init__(self, loop: asyncio.AbstractEventLoop):
 
@@ -34,18 +35,22 @@ class AutoTrader(BaseAutoTrader):
         """
 
         if instrument == Instrument.FUTURE:
-            new_bid_price = (bid_prices[0]) if bid_prices[0] != 0 else 0
-            new_ask_price = (ask_prices[0]) if ask_prices[0] != 0 else 0
+            price = (((bid_prices[1] + bid_prices[2] + bid_prices[3] + ask_prices[1] + ask_prices[2] + ask_prices[3])
+                      / 100) // 6)
+            new_bid_price = int(price * 100 - 100) if bid_prices[0] != 0 else 0
+            new_ask_price = int(price * 100 + 100) if ask_prices[0] != 0 else 0
             bid_volume = min(min(bid_volumes[0], 25), (99 + self.position))
             ask_volume = min(min(ask_volumes[0], 25), (99 - self.position))
 
-            if (self.bid_id != 0 and new_bid_price not in (self.bid_price, 0)):
+            if self.bid_id != 0 and new_bid_price not in (self.bid_price, 0) and self.bid_order == 0:
                 self.send_cancel_order(self.bid_id)
                 self.bid_id = 0
 
-            if (self.ask_id != 0 and new_ask_price not in (self.ask_price, 0)):
+
+            if self.ask_id != 0 and new_ask_price not in (self.ask_price, 0) and self.ask_order == 0:
                 self.send_cancel_order(self.ask_id)
                 self.ask_id = 0
+
 
             if self.bid_id == 0 and new_bid_price != 0 and (self.position < 100 - bid_volume) and (
                     self.future_position - bid_volume > -100) and self.bid_order == 0 and bid_volume != 0:
@@ -83,8 +88,6 @@ class AutoTrader(BaseAutoTrader):
             self.bid_order = 0
         if client_order_id == self.ask_id:
             self.ask_order = 0
-
-
 
     def on_position_change_message(self, future_position: int, etf_position: int) -> None:
         """Called when your position changes.
