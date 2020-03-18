@@ -50,15 +50,15 @@ class AutoTrader(BaseAutoTrader):
                 self.ask_id = 0
 
             if self.bid_id == 0 and new_bid_price != 0 and self.position <= 100 - bid_volume and (
-                    self.future_position - bid_volume >= -100) and self.bid_order == 0:
+                    self.future_position - bid_volume >= -100) and self.bid_order == 0 and bid_volume != 0:
                 self.bid_order = 1
                 ask_ids.append(self.bid_id)
                 self.bid_id = next(self.order_ids)
                 self.bid_price = new_bid_price
                 self.send_insert_order(self.bid_id, Side.BUY, new_bid_price, bid_volume, Lifespan.GOOD_FOR_DAY)
 
-            if self.ask_id == 0 and new_ask_price != 0 and self.position >= -100 + ask_volume and (self.future_position + ask_volume <= 100)\
-                    and self.ask_order == 0:
+            if self.ask_id == 0 and new_ask_price != 0 and self.position >= -100 + ask_volume and \
+                    (self.future_position + ask_volume <= 100) and self.ask_order == 0 and ask_volume != 0:
                 self.ask_order = 1
                 bid_ids.append(self.ask_id)
                 self.ask_id = next(self.order_ids)
