@@ -44,8 +44,6 @@ class AutoTrader(BaseAutoTrader):
             # Send Orders with better price +/- 100
             # 100 difference between buy price
 
-
-
             if self.bid_id != 0 and new_bid_price not in (self.bid_price, 0):
                 self.send_cancel_order(self.bid_id)
                 self.bid_id = 0
@@ -54,25 +52,26 @@ class AutoTrader(BaseAutoTrader):
                 self.send_cancel_order(self.ask_id)
                 self.ask_id = 0
 
-            if self.bid_id == 0 and new_bid_price != 0 and self.position < 100 - volume - 1 and (self.future_position - volume -1 > -100):
+            if self.bid_id == 0 and new_bid_price != 0 and self.position < 99 - volume:
                 self.bid_id = next(self.order_ids)
                 self.bid_price = new_bid_price
                 self.send_insert_order(self.bid_id, Side.BUY, new_bid_price, volume, Lifespan.GOOD_FOR_DAY)
 
-            if self.bid_id == 0 and new_bid_price_1 != 0 and self.position < 100 and (self.future_position - 1 >= -100):
+            if self.bid_id == 0 and new_bid_price_1 != 0 and self.position < 99:
                 self.bid_id = next(self.order_ids)
                 self.bid_price = new_bid_price_1
                 self.send_insert_order(self.bid_id, Side.BUY, new_bid_price_1, 1, Lifespan.GOOD_FOR_DAY)
 
-            if self.ask_id == 0 and new_ask_price != 0 and self.position > -100 + volume + 1 and (self.future_position + volume + 1 < 100):
+            if self.ask_id == 0 and new_ask_price != 0 and self.position > -99 + volume:
                 self.ask_id = next(self.order_ids)
                 self.ask_price = new_ask_price
                 self.send_insert_order(self.ask_id, Side.SELL, new_ask_price, volume, Lifespan.GOOD_FOR_DAY)
 
-            if self.ask_id == 0 and new_ask_price_1 != 0 and self.position > -100 and (self.future_position + 1 <= 100):
+            if self.ask_id == 0 and new_ask_price_1 != 0 and self.position > -99:
                 self.ask_id = next(self.order_ids)
                 self.ask_price = new_ask_price_1
                 self.send_insert_order(self.ask_id, Side.SELL, new_ask_price_1, 1, Lifespan.GOOD_FOR_DAY)
+
 
     def on_order_status_message(self, client_order_id: int, fill_volume: int, remaining_volume: int, fees: int) -> None:
         """Called when the status of one of your orders changes.
@@ -100,7 +99,6 @@ class AutoTrader(BaseAutoTrader):
         """
 
         self.position = etf_position
-        self.future_position = future_position
 
     def on_trade_ticks_message(self, instrument: int, trade_ticks: List[Tuple[int, int]]) -> None:
         """Called periodically to report trading activity on the market.
