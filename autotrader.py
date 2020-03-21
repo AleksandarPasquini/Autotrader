@@ -32,8 +32,10 @@ class AutoTrader(BaseAutoTrader):
         price levels.
         """
         if instrument == Instrument.FUTURE:
-            new_bid_price = (bid_prices[0]) if bid_prices[0] != 0 else 0
-            new_ask_price = (ask_prices[0]) if ask_prices[0] != 0 else 0
+            new_bid_price = (bid_prices[1]) if bid_prices[1] != 0 else 0
+            new_ask_price = (ask_prices[1]) if ask_prices[1] != 0 else 0
+            new_bid_price_1 = (bid_prices[0]) if bid_prices[0] != 0 else 0
+            new_ask_price_1 = (ask_prices[0]) if ask_prices[0] != 0 else 0
             bid_volume = bid_volumes[0] + bid_volumes[1]
             ask_volume = ask_volumes[0] + ask_volumes[1]
 
@@ -55,20 +57,20 @@ class AutoTrader(BaseAutoTrader):
                 self.bid_price = new_bid_price
                 self.send_insert_order(self.bid_id, Side.BUY, new_bid_price, volume, Lifespan.GOOD_FOR_DAY)
 
-            if self.bid_id == 0 and new_bid_price != 0 and self.position < 99:
+            if self.bid_id == 0 and new_bid_price_1 != 0 and self.position < 99:
                 self.bid_id = next(self.order_ids)
-                self.bid_price = new_bid_price
-                self.send_insert_order(self.bid_id, Side.BUY, new_bid_price, 1, Lifespan.GOOD_FOR_DAY)
+                self.bid_price = new_bid_price_1
+                self.send_insert_order(self.bid_id, Side.BUY, new_bid_price_1, 1, Lifespan.GOOD_FOR_DAY)
 
             if self.ask_id == 0 and new_ask_price != 0 and self.position > -99 + volume:
                 self.ask_id = next(self.order_ids)
                 self.ask_price = new_ask_price
                 self.send_insert_order(self.ask_id, Side.SELL, new_ask_price, volume, Lifespan.GOOD_FOR_DAY)
 
-            if self.ask_id == 0 and new_ask_price != 0 and self.position > -99:
+            if self.ask_id == 0 and new_ask_price_1 != 0 and self.position > -99:
                 self.ask_id = next(self.order_ids)
-                self.ask_price = new_ask_price
-                self.send_insert_order(self.ask_id, Side.SELL, new_ask_price, 1, Lifespan.GOOD_FOR_DAY)
+                self.ask_price = new_ask_price_1
+                self.send_insert_order(self.ask_id, Side.SELL, new_ask_price_1, 1, Lifespan.GOOD_FOR_DAY)
 
 
     def on_order_status_message(self, client_order_id: int, fill_volume: int, remaining_volume: int, fees: int) -> None:
