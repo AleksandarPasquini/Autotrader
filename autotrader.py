@@ -25,7 +25,6 @@ class AutoTrader(BaseAutoTrader):
     def on_order_book_update_message(self, instrument: int, sequence_number: int, ask_prices: List[int],
                                      ask_volumes: List[int], bid_prices: List[int], bid_volumes: List[int]) -> None:
         """Called periodically to report the status of an order book.
-
         The sequence number can be used to detect missed or out-of-order
         messages. The five best available ask (i.e. sell) and bid (i.e. buy)
         prices are reported along with the volume available at each of those
@@ -46,32 +45,29 @@ class AutoTrader(BaseAutoTrader):
 
             if self.bid_id != 0 and new_bid_price not in (self.bid_price, 0):
                 self.send_cancel_order(self.bid_id)
-                self.bid_id = 0
 
             if self.ask_id != 0 and new_ask_price not in (self.ask_price, 0):
                 self.send_cancel_order(self.ask_id)
-                self.ask_id = 0
 
-            if self.bid_id == 0 and new_bid_price != 0 and self.position < 99 - volume:
+            if self.bid_id == 0 and new_bid_price != 0 and self.position < 100 - volume:
                 self.bid_id = next(self.order_ids)
                 self.bid_price = new_bid_price
                 self.send_insert_order(self.bid_id, Side.BUY, new_bid_price, volume, Lifespan.GOOD_FOR_DAY)
 
-            if self.bid_id == 0 and new_bid_price_1 != 0 and self.position < 99:
+            if self.bid_id == 0 and new_bid_price_1 != 0 and self.position < 100:
                 self.bid_id = next(self.order_ids)
                 self.bid_price = new_bid_price_1
                 self.send_insert_order(self.bid_id, Side.BUY, new_bid_price_1, 1, Lifespan.GOOD_FOR_DAY)
 
-            if self.ask_id == 0 and new_ask_price != 0 and self.position > -99 + volume:
+            if self.ask_id == 0 and new_ask_price != 0 and self.position > -100 + volume:
                 self.ask_id = next(self.order_ids)
                 self.ask_price = new_ask_price
                 self.send_insert_order(self.ask_id, Side.SELL, new_ask_price, volume, Lifespan.GOOD_FOR_DAY)
 
-            if self.ask_id == 0 and new_ask_price_1 != 0 and self.position > -99:
+            if self.ask_id == 0 and new_ask_price_1 != 0 and self.position > -100:
                 self.ask_id = next(self.order_ids)
                 self.ask_price = new_ask_price_1
                 self.send_insert_order(self.ask_id, Side.SELL, new_ask_price_1, 1, Lifespan.GOOD_FOR_DAY)
-
 
     def on_order_status_message(self, client_order_id: int, fill_volume: int, remaining_volume: int, fees: int) -> None:
         """Called when the status of one of your orders changes.
@@ -88,7 +84,6 @@ class AutoTrader(BaseAutoTrader):
                 self.bid_id = 0
             elif client_order_id == self.ask_id:
                 self.ask_id = 0
-
 
     def on_position_change_message(self, future_position: int, etf_position: int) -> None:
         """Called when your position changes.
