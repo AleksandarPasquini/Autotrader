@@ -17,11 +17,11 @@
 #     <https://www.gnu.org/licenses/>.
 import asyncio
 import itertools
+import time
 
 from typing import List
 
 from ready_trader_one import BaseAutoTrader, Instrument, Lifespan, Side
-
 
 LOT_SIZE = 10
 POSITION_LIMIT = 1000
@@ -46,7 +46,7 @@ class AutoTrader(BaseAutoTrader):
         self.asks = {}
         self.ask_id = self.ask_price = self.bid_id = self.bid_price = self.position = self.on_market = 0
         self.sequence_number = -1
-
+        self.start = time.time()
 
     def on_error_message(self, client_order_id: int, error_message: bytes) -> None:
         """Called when the exchange detects an error.
@@ -67,35 +67,48 @@ class AutoTrader(BaseAutoTrader):
         prices are reported along with the volume available at each of those
         price levels.
         """
-        if instrument == Instrument.FUTURE and sequence_number > self.sequence_number:
+        if instrument == Instrument.FUTURE and sequence_number >= self.sequence_number:
             self.sequence_number = sequence_number
-            # price_adjustment = - (self.position // LOT_SIZE) * TICK_SIZE_IN_CENTS
-            #new_bid_price = ((bid_prices[0]+ask_prices[0])//200)*100 - 100 if bid_prices[0] != 0 else 0
-            #new_ask_price = ((ask_prices[0]+bid_prices[0])//200)*100 if ask_prices[0] != 0 else 0
-            new_bid_price = bid_prices[0] if bid_prices[0] != 0 else 0
-            new_ask_price = ask_prices[0] if ask_prices[0] != 0 else 0
-            #new_bid_price = self.price_finder(True, bid_prices)
-            #new_ask_price = self.price_finder(False, ask_prices)
-            bid_order_volumne = bid_volumes[0] + bid_volumes[1] if bid_volumes[0] + bid_volumes[1] <= 100 else 100
-            ask_order_volumne = ask_volumes[0] + ask_volumes[1] if ask_volumes[0] + ask_volumes[1] <= 100 else 100
-            volume = min(bid_order_volumne, ask_order_volumne)
-            bid_order_volumne = volume if self.position - 100 > -POSITION_LIMIT else 200
-            ask_order_volumne = volume if self.position + 100 < POSITION_LIMIT else 200
-            if self.bid_id != 0 and new_bid_price not in (self.bid_price, 0): # or (new_bid_price == self.bid_price and abs(self.on_market) % 100 != 0):
-                self.send_cancel_order(self.bid_id)
-                self.bid_id = 0
-            if self.ask_id != 0 and new_ask_price not in (self.ask_price, 0): # or (new_ask_price == self.ask_price and abs(self.on_market) % 100 != 0):
-                self.send_cancel_order(self.ask_id)
-                self.ask_id = 0
+            # new_bid_price = ((bid_prices[0]+ask_prices[0])//200)*100 - 100 if bid_prices[0] != 0 else 0
+            # new_ask_price = ((ask_prices[0]+bid_prices[0])//200)*100 if ask_prices[0] != 0 else 0
+            price = ((bid_prices[0] + ask_prices[0]) // 200) * 100 if bid_prices[0] != 0 or ask_prices[0] != 0 else 0
+            new_bid_price = 0
+            new_ask_price = 0
+            if price != 0:
+                price_adjustment = int((time.time() - self.start) // 60)
+                if self.position > 0:
+                    new_bid_price = price - price_adjustment*100
+                    new_ask_price = price + 200 - price_adjustment*100
+                else:
+                    new_bid_price = price + price_adjustment*100
+                    new_ask_price = price + 200 + price_adjustment*100
 
-            if self.bid_id == 0 and new_bid_price != 0 and self.position + bid_order_volumne < POSITION_LIMIT and abs(self.on_market) < 200:
+            # bid_order_volumne = bid_volumes[0] if bid_volumes[0] <= 100 else 100
+            # ask_order_volumne = ask_volumes[0] if ask_volumes[0] <= 100 else 100
+            volume_change = int((self.position / POSITION_LIMIT) * 100)
+            bid_order_volumne = 100 - volume_change
+            ask_order_volumne = 100 + volume_change
+            if (new_bid_price not in (self.bid_price, 0)) or (abs(self.on_market) % 200 != 0):
+                if self.bid_id != 0:
+                    self.send_cancel_order(self.bid_id)
+                    self.on_market -= self.bids[self.bid_id]
+                    self.bid_id = 0
+            if (new_ask_price not in (self.ask_price, 0)) or (abs(self.on_market) % 200 != 0):
+                if self.ask_id != 0:
+                    self.send_cancel_order(self.ask_id)
+                    self.on_market -= self.asks[self.ask_id]
+                    self.ask_id = 0
+
+            if self.bid_id == 0 and new_bid_price != 0 and self.position + bid_order_volumne <= POSITION_LIMIT and abs(
+                    self.on_market) <= 200 and bid_order_volumne != 0:
                 self.bid_id = next(self.order_ids)
                 self.bid_price = new_bid_price
                 self.send_insert_order(self.bid_id, Side.BUY, new_bid_price, bid_order_volumne, Lifespan.GOOD_FOR_DAY)
                 self.on_market += bid_order_volumne
                 self.bids[self.bid_id] = bid_order_volumne
 
-            if self.ask_id == 0 and new_ask_price != 0 and self.position - ask_order_volumne > -POSITION_LIMIT and abs(self.on_market) < 200:
+            if self.ask_id == 0 and new_ask_price != 0 and self.position - ask_order_volumne >= -POSITION_LIMIT and abs(
+                    self.on_market) <= 200 and ask_order_volumne != 0:
                 self.ask_id = next(self.order_ids)
                 self.ask_price = new_ask_price
                 self.send_insert_order(self.ask_id, Side.SELL, new_ask_price, ask_order_volumne, Lifespan.GOOD_FOR_DAY)
@@ -109,6 +122,7 @@ class AutoTrader(BaseAutoTrader):
         which may be better than the order's limit price. The volume is
         the number of lots filled at that price.
         """
+        self.start = time.time()
         if client_order_id in self.bids:
             self.position += volume
             self.bids[client_order_id] -= volume
@@ -117,18 +131,6 @@ class AutoTrader(BaseAutoTrader):
             self.position -= volume
             self.asks[client_order_id] -= volume
             self.on_market -= volume
-
-    def price_finder(self, bid, prices):
-        if bid:
-            if self.ask_price == 0:
-                return prices[0]
-            else:
-                return prices[0]
-        else:
-            if self.bid_price == 0:
-                return prices[0]
-            else:
-                return prices[0]
 
     def on_order_status_message(self, client_order_id: int, fill_volume: int, remaining_volume: int,
                                 fees: int) -> None:
@@ -148,8 +150,6 @@ class AutoTrader(BaseAutoTrader):
                 self.ask_id = 0
             # It could be either a bid or an ask
             if client_order_id in self.bids:
-                self.on_market -= self.bids[client_order_id]
                 del self.bids[client_order_id]
             elif client_order_id in self.asks:
-                self.on_market -= self.asks[client_order_id]
                 del self.asks[client_order_id]
