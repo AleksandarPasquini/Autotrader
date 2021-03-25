@@ -43,7 +43,7 @@ class AutoTrader(BaseAutoTrader):
         self.order_ids = itertools.count(1)
         self.bids = {}
         self.asks = {}
-        self.ask_id = self.ask_price = self.bid_id = self.bid_price = self.position = 0
+        self.ask_id = self.ask_price = self.bid_id = self.bid_price = self.position = self.marketbid = self.marketask = 0
         self.sequence_number = -1
 
     def on_error_message(self, client_order_id: int, error_message: bytes) -> None:
@@ -77,25 +77,25 @@ class AutoTrader(BaseAutoTrader):
             if new_bid_price not in (self.bid_price, 0):
                 if self.bid_id != 0:
                     self.send_cancel_order(self.bid_id)
-                    del self.bids[self.bid_id]
                     self.bid_id = 0
             if new_ask_price not in (self.ask_price, 0):
                 if self.ask_id != 0:
                     self.send_cancel_order(self.ask_id)
-                    del self.asks[self.ask_id]
                     self.ask_id = 0
 
-            if self.bid_id == 0 and new_bid_price != 0 and self.position + bid_order_volumne <= POSITION_LIMIT and \
-                    bid_order_volumne != 0:
+            if self.bid_id == 0 and new_bid_price != 0 and self.position + bid_order_volumne + self.marketbid <= POSITION_LIMIT \
+                    and bid_order_volumne != 0:
                 self.bid_id = next(self.order_ids)
                 self.bid_price = new_bid_price
+                self.marketbid += bid_order_volumne
                 self.send_insert_order(self.bid_id, Side.BUY, new_bid_price, bid_order_volumne, Lifespan.GOOD_FOR_DAY)
                 self.bids[self.bid_id] = bid_order_volumne
 
-            if self.ask_id == 0 and new_ask_price != 0 and self.position - ask_order_volumne >= -POSITION_LIMIT and \
-                    ask_order_volumne != 0:
+            if self.ask_id == 0 and new_ask_price != 0 and self.position - ask_order_volumne - self.marketask >= -POSITION_LIMIT \
+                    and ask_order_volumne != 0:
                 self.ask_id = next(self.order_ids)
                 self.ask_price = new_ask_price
+                self.marketask += ask_order_volumne
                 self.send_insert_order(self.ask_id, Side.SELL, new_ask_price, ask_order_volumne, Lifespan.GOOD_FOR_DAY)
                 self.asks[self.ask_id] = ask_order_volumne
 
@@ -108,9 +108,11 @@ class AutoTrader(BaseAutoTrader):
         """
         if client_order_id in self.bids:
             self.position += volume
+            self.marketbid -= volume
             self.bids[client_order_id] -= volume
         elif client_order_id in self.asks:
             self.position -= volume
+            self.marketask -= volume
             self.asks[client_order_id] -= volume
 
     def on_order_status_message(self, client_order_id: int, fill_volume: int, remaining_volume: int,
@@ -131,6 +133,8 @@ class AutoTrader(BaseAutoTrader):
                 self.ask_id = 0
             # It could be either a bid or an ask
             if client_order_id in self.bids:
+                self.marketbid -= self.bids[client_order_id]
                 del self.bids[client_order_id]
             elif client_order_id in self.asks:
+                self.marketask -= self.asks[client_order_id]
                 del self.asks[client_order_id]
